@@ -13,18 +13,8 @@ theta = np.linspace(0, 2 * np.pi, num_boundary_points, endpoint=False)
 x_boundary = circle_center[0] + circle_radius * np.cos(theta)
 y_boundary = circle_center[1] + circle_radius * np.sin(theta)
 
-# **Daire İçindeki Noktaları Filtrele**
-def filter_points_inside_circle(points, circle_center, circle_radius):
-    # Noktaların daire merkezine olan mesafesini hesapla
-    distances = np.linalg.norm(points - circle_center, axis=1)
-
-    # Daire içinde kalan noktaları çıkar
-    filtered_points = points[distances >= circle_radius]
-
-    return filtered_points
-
 # **Advancing Front ile İçeri Meshleme**
-num_layers = 15  # Katman sayısı
+num_layers = 16  # Katman sayısı
 first_layer_thickness = 0.05  # İlk katman kalınlığı
 thickness_factor = 1.2  # Katman kalınlık faktörü, her katmanda ne kadar genişleyeceğini belirler
 
@@ -53,29 +43,24 @@ grid_points = np.vstack([grid_X.ravel(), grid_Y.ravel()]).T
 # **Tüm Noktaları Birleştir**
 points = np.vstack([np.array([all_x, all_y]).T, grid_points])
 
-
-# **Dairenin İçindeki Noktaları Filtrele**
+# **Daire İçindeki Noktaları Filtrele**
 def filter_points_inside_circle(points, circle_center, circle_radius):
     # Noktaların daire merkezine olan mesafesini hesapla
     distances = np.linalg.norm(points - circle_center, axis=1)
 
-    # Daire içinde kalan noktaları çıkar
+    # Daire içinde kalan noktaları çıkar (dairenin içindekiler hariç)
     filtered_points = points[distances >= circle_radius]
 
     return filtered_points
 
-
-# **Mesh Noktalarını Filtrele**
+# **Daire içindeki noktaları direkt sil, meshlemeden dışarıda bırak**
 filtered_points = filter_points_inside_circle(points, circle_center, circle_radius)
-
 
 # **Delaunay Triangulation ile Mesh Oluştur**
 def generate_triangulation(points):
     return Delaunay(points)
 
-
-tri = generate_triangulation(points)
-
+tri = generate_triangulation(filtered_points)  # Burada filtrelenmiş noktaları kullanıyoruz
 
 # **Kalite Metriği Hesaplama (Skewness & Orthogonality)**
 def calculate_quality(tri, points):
@@ -104,7 +89,7 @@ def calculate_quality(tri, points):
     return np.array(skewness), np.array(orthogonality)
 
 
-skewness, orthogonality = calculate_quality(tri, points)
+skewness, orthogonality = calculate_quality(tri, filtered_points)
 threshold_skew = 0.3  # Skewness için eşik değer
 target_orthogonality = 40  # En düşük açı threshold
 to_refine = np.where((skewness < threshold_skew) | (orthogonality < target_orthogonality))[0]
@@ -121,7 +106,7 @@ def refine_mesh(tri, points, to_refine):
 
 
 # Refinement işlemi
-enhanced_points = refine_mesh(tri, points, to_refine)
+enhanced_points = refine_mesh(tri, filtered_points, to_refine)
 tri = generate_triangulation(enhanced_points)
 skewness, orthogonality = calculate_quality(tri, enhanced_points)
 
